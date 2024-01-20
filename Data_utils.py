@@ -58,9 +58,11 @@ def fill_missing_stations(features_by_date, station_not_to_use):
     return features_by_date
 
 
-def extract_data(features, target, features_to_use=None):
+def extract_data(features, target, features_to_use=None, target_features_to_use=None):
     if features_to_use is None:
-        features_to_use = ['latitude', 'longitude', 'temp', 'precip', 'wind_direction', 'wind_speed']
+        features_to_use = ['latitude', 'longitude', 'temp', 'wind_direction', 'wind_speed']
+    if target_features_to_use is None:
+        target_features_to_use = ['wind_speed']
 
     distances = features.apply(
         lambda row: distance.distance(
@@ -73,20 +75,20 @@ def extract_data(features, target, features_to_use=None):
 
     processed_features = processed_features.to_numpy().flatten()
 
-    processed_target = target['wind_speed']
+    processed_target = target.loc[target_features_to_use].copy()
 
     return processed_features, processed_target
 
 
 # Note some station will have less data, so the smallest date range is used to mach all stations
-def extract_data_match_date_range(features, target, neighbour_station_names, features_to_use):
+def extract_data_match_date_range(features, target, neighbour_station_names, features_to_use, target_features_to_use):
     processed_features = []
     processed_target = []
 
     for index in range(len(target)):
         features_by_date = features.loc[features['date'] == target.iloc[index]['date']]
         if features_by_date.shape[0] == len(neighbour_station_names):
-            extracted_features, extracted_target = extract_data(features_by_date, target.iloc[index], features_to_use)
+            extracted_features, extracted_target = extract_data(features_by_date, target.iloc[index], features_to_use, target_features_to_use)
             processed_features.append(extracted_features)
             processed_target.append(extracted_target)
 
@@ -95,7 +97,7 @@ def extract_data_match_date_range(features, target, neighbour_station_names, fea
 
 # Given the target station name, find the nearest neighbours within the distance
 def generate_data(raw_data, target_station_name, number_of_neighbours, max_threshold_distance,
-                  min_threshold_distance=2, features_to_use=None):
+                  min_threshold_distance=2, features_to_use=None, target_features_to_use=None):
     target = raw_data.loc[raw_data['name'] == target_station_name]
 
     target_latitude = target.iloc[0]['latitude']
@@ -120,6 +122,6 @@ def generate_data(raw_data, target_station_name, number_of_neighbours, max_thres
 
         # filter the data, return
         features = raw_data[raw_data['name'].isin(neighbour_station_names)]
-        features, target = extract_data_match_date_range(features, target, neighbour_station_names, features_to_use)
+        features, target = extract_data_match_date_range(features, target, neighbour_station_names, features_to_use, target_features_to_use)
 
     return features, target
