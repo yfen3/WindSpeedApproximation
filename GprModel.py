@@ -60,9 +60,9 @@ class GprModel:
     
     # Compute the partition matrix on the training data
     def fit(self, x, y):
-        indices = self.subsample_data(x, 2000)
-        self.sub_train_x = x[indices]
-        self.sub_train_y = y[indices]
+        #indices = self.subsample_data(x, 2000)
+        self.sub_train_x = x#x[indices]
+        self.sub_train_y = y#y[indices]
 
         self.sub_train_y = self.preprocess_data(self.sub_train_y)
 
@@ -82,8 +82,11 @@ class GprModel:
         print(result.x)
         self.optimized_ls, self.optimized_a, self.optimized_c = result.x
 
-    def predict(self, gp_x_test , y_test):
-        gp_y_test = self.target_scaler.transform(y_test)
+    def predict(self, gp_x_test , y_test, normalized=False):
+        if not normalized:
+            gp_y_test = self.target_scaler.transform(y_test)
+        else:
+            gp_y_test = y_test
         # Compute the RMSE for prediction
         gp_rmse = []
         gp_means = []
@@ -104,9 +107,14 @@ class GprModel:
             #lw_bd =  target_scaler.inverse_transform(post_mean - (np.sqrt(np.diag(post_cov))*2).reshape(-1, 1))
             #up_bd =  target_scaler.inverse_transform(post_mean + (np.sqrt(np.diag(post_cov))*2).reshape(-1, 1))
             
-            rmse = np.mean(np.sqrt((self.target_scaler.inverse_transform(post_mean) - self.target_scaler.inverse_transform(gp_y_test[row_index:row_index+1000, :]))**2))
-            gp_rmse.append(rmse)
-            gp_means.append(self.target_scaler.inverse_transform(post_mean).flatten())
+            if not normalized:
+                rmse = np.sqrt(np.mean((self.target_scaler.inverse_transform(post_mean) - self.target_scaler.inverse_transform(gp_y_test[row_index:row_index+1000, :]))**2))
+                gp_rmse.append(rmse)
+                gp_means.append(self.target_scaler.inverse_transform(post_mean).flatten())
+            else:
+                rmse = np.sqrt(np.mean((post_mean - gp_y_test[row_index:row_index+1000, :])**2))
+                gp_rmse.append(rmse)
+                gp_means.append(post_mean.flatten())
         
         print("Root Mean Squared Error:", np.mean(gp_rmse))
 
