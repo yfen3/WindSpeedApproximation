@@ -8,12 +8,13 @@ from scipy.spatial.distance import cdist
 
 class TsModel:
 
-    def __init__(self, number_of_rules=30, fuzzification_coefficient=2, early_end_threshold=1e-5, max_iteration=200):
+    def __init__(self, number_of_rules=30, fuzzification_coefficient=2, early_end_threshold=1e-5, max_iteration=200, use_target_in_fcm=False):
         # Fcm hyperparameters
         self.FCM_Nc = number_of_rules
         self.FCM_m = fuzzification_coefficient
         self.tol = early_end_threshold
         self.max_iter = max_iteration
+        self.use_target_in_fcm = use_target_in_fcm
         # Weight that is trained and used
         self.W = None
         self.cen = None
@@ -62,7 +63,12 @@ class TsModel:
     # Compute the partition matrix on the training data
     def fit(self, x, y):
         start_time = time.time()
-        self.__compute_cluster__(x)
+        if self.use_target_in_fcm:
+            self.__compute_cluster__(np.hstack((x,y)))
+            # If the target is used in clustering, remove it after FCM is done
+            self.cen = self.cen[:,0:-1]
+        else:  
+            self.__compute_cluster__(x)
         # 模型训练 TODO find if this can be optimized
         self.__compute_partition_matrix__(x)
         # 计算权重 W
