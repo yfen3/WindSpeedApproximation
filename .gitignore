@@ -1,10 +1,6 @@
 /.ipynb_checkpoints/
 /Setup.ipynb
-/Data/
-/Data/AB_wind_data/
-/Data/exp/
-/Data/housing/
-/Data/Previous/
 /Regression_Tree_Forest/
 /Data/processed_ab_wind.csv
 /wind_ab/
+/Data/exp/
