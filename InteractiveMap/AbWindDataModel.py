@@ -2,13 +2,13 @@ import pandas as pd
 import os
 os.environ["KERAS_BACKEND"] = "torch"
 import keras
-from InteractiveMap.DataLoader import DataLoader
-from InteractiveMap.ModelLoader import ModelLoader
+from DataLoader import DataLoader
+from ModelLoader import ModelLoader
 
 class AbWindDataModel:
     def __init__(self):
-        self.df = pd.read_csv('Data/processed_ab_wind_test.txt')
-        self.nn_location = 'Visualization_proj_9stations.keras'
+        self.df = pd.read_csv('../Data/processed_ab_wind_test.txt')
+        self.nn_location = '../Visualization_proj_9stations.keras'
 
     def get_latest_one_month_records_data_loader(self):
         latest_one_month_records = self.df.sort_values('date', ascending=False).head(20*300)

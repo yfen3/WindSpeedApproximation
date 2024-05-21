@@ -5,17 +5,22 @@ import numpy as np
 def get_latlng(onClickData):
     return onClickData['latlng']['lat'], onClickData['latlng']['lng']
 
+def round_to_three_decimal_places(number):
+    return np.round(number, 3)
+
+def get_most_recent_model_prediction(model_prediction):
+    return model_prediction[-1]
+
 def get_model_prediction(scaled_input, model):
     model_prediction = model.predict(scaled_input)
-    wind_speed = model_prediction[0][0]
-    print(wind_speed)
 
-    return wind_speed
+    return model_prediction.flatten()
 
 def get_wind_speed(lat, lng, data_loader, model_loader, number_of_stations):
     model_input_data = generate_data(data_loader.get_data(), [lat, lng], number_of_stations)
     scaled_data = model_loader.load_standard_scaler(model_input_data)
     wind_speed = get_model_prediction(scaled_data, model_loader.get_model())
+    wind_speed = round_to_three_decimal_places(wind_speed)
 
     return wind_speed
 
