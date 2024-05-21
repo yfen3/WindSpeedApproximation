@@ -1,28 +1,20 @@
-import pandas as pd 
 import plotly.express as px
 from dash import dcc
 
 
 # TODO implement the graph
 # This is a placeholder for the graph
-def get_graph(title):
-    df = pd.DataFrame({
-    "Fruit": ["Apples", "Oranges", "Bananas", "Apples", "Oranges", "Bananas"],
-    "Amount": [4, 1, 2, 2, 4, 5],
-    "City": ["SF", "SF", "SF", "Montreal", "Montreal", "Montreal"]
-    })
+def get_graph(title, df, x, y):
 
-    fig = px.bar(
+    fig = px.line(
         df, 
-        x="Fruit", 
-        y="Amount", 
-        color="City", 
-        barmode="group", 
+        x=x, 
+        y=y, 
         title=title,
+        markers=True,
         width=500
         )
     graph = dcc.Graph(
-        id='example-graph',
         figure=fig
     )
 
