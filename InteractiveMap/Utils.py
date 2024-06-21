@@ -16,13 +16,51 @@ def get_model_prediction(scaled_input, model):
 
     return model_prediction.flatten()
 
-def get_wind_speed(lat, lng, data_loader, model_loader, number_of_stations):
+def get_scaled_input_to_predict(lat, lng, data_loader, number_of_stations, model_loader):
     model_input_data = generate_data(data_loader.get_data(), [lat, lng], number_of_stations)
     scaled_data = model_loader.load_standard_scaler(model_input_data)
-    wind_speed = get_model_prediction(scaled_data, model_loader.get_model())
+
+    return scaled_data
+
+
+def get_wind_speed(lat, lng, data_loader, model_loader, number_of_stations):
+    input = get_scaled_input_to_predict(lat, lng, data_loader, number_of_stations, model_loader)
+
+    wind_speed = get_model_prediction(input, model_loader.get_model())
     wind_speed = round_to_three_decimal_places(wind_speed)
 
     return wind_speed
+
+def get_confidence_interval(lat, lng, data_loader, gp_model_loader, number_of_stations):
+    model_input_data = generate_data(data_loader.get_data(), [lat, lng], number_of_stations)
+    means, stds = gp_model_loader.get_model().predict(model_input_data, return_std=True)
+
+    return means, stds
+
+# generate a grid of points for visualization
+# the geographical area is predefinded over the provence of Alberta
+def generate_grid_points(density=10):
+    longitudes = np.linspace(-110.07, -115.55, density)
+    latitudes = np.linspace(49.12, 53.55, density)
+    xx, yy = np.meshgrid(latitudes, longitudes)
+    return np.array(list(zip(xx.flatten(), yy.flatten()))), latitudes, longitudes
+
+# Retrun all prediction over the entire map by using the grid
+# used to produce the contour plot of predictions
+def get_grid_prediction(data, model_loader, density):
+    grid_coor, latitudes, longitudes = generate_grid_points(density)
+
+    grid_input_data = []
+    for coor in grid_coor:
+        input_feature = generate_data(data, coor, 9)
+        if len(grid_input_data) == 0:
+            grid_input_data = input_feature
+        else:
+            grid_input_data = np.concatenate((grid_input_data, input_feature), axis=0)
+
+    means, stds = model_loader.get_model().predict(grid_input_data, return_std=True)
+
+    return means, stds, latitudes, longitudes
 
 def find_clostest_n_neighbours(target, unique_stations, number_of_neighbours):
     station_with_locations = unique_stations.copy()
