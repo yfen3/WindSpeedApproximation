@@ -5,3 +5,5 @@
 /wind_ab/
 /Data/exp/
 /Data
+*.pickle
+*.pyc
