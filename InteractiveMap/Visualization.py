@@ -1,5 +1,6 @@
 # Get the data for expeirment
-from dash import Dash, html, Input, Output, callback, exceptions, dcc
+
+from dash import Dash, html, Input, Output, State, callback, exceptions, dcc
 import dash_leaflet as dl
 import Utils as Utils
 from Info import get_info_panel
@@ -14,6 +15,9 @@ import os
 os.environ["KERAS_BACKEND"] = "torch"
 import keras
 import numpy as np
+import re
+from geopy.geocoders import Nominatim
+from geopy.exc import GeopyError
 
 device = torch.device("cuda:0")
 print(f"Keras version is {keras.__version__}")
@@ -56,18 +60,35 @@ info = get_info_panel(
     )
 tooltip = get_tooltip([170, 180], 'Wind Speed: 10 km/h')
 map = get_map(children=[tooltip])
+
 model_selector =  dcc.Dropdown(
     list(model_loaders.keys()), 
     'NN', 
     id='model-dropdown',
     style={'width': '300px'}
     )
+
 graph_selector =  dcc.Dropdown(
     ['Lowerbound Prediction', 'Upperbound Prediction'], 
     'Upperbound Prediction', 
     id='graph-dropdown',
     style={'width': '300px'}
     )
+
+search_bar = dcc.Input(
+    id='search-bar',
+    type='text',
+    placeholder='Enter a location...',
+    style={'width': '300px'}
+)
+
+search_button = html.Button(
+    'Search',
+    id='search-button',
+    n_clicks=0,
+    style={'margin-left': '10px'}
+)
+
 graph = html.Div(children=[], id='detail-graph')
 # use browser session to store the data
 store = dcc.Store(id='store', storage_type='session')
@@ -140,6 +161,38 @@ def show_click_info(onClickData):
         lat, lng = Utils.get_latlng(onClickData)
         return f'Location clicked: {np.round(lat, 4)}, {np.round(lng, 4)}'
     
+# Callback to handle search button clicks
+@callback(
+    [Input('search-button', 'n_clicks')],
+    State('search-bar', 'value'),
+    prevent_initial_call=True,
+)
+def on_search_button_click(n_clicks, search_value):
+    if search_value:
+        # print(f"Search value: {search_value}")
+        geolocator = Nominatim(user_agent="WindSpeedApproximationGeocoder")
+        try:
+            if is_coordinates(search_value):
+                # Reverse geocoding
+                location = geolocator.reverse(search_value)
+                if location:
+                    print(f"Coordinates: {search_value}")
+                    print(f"Address: {location.address}")
+                else:
+                    print("Location not found.")
+            else:
+                # Forward geocoding
+                location = geolocator.geocode(search_value)
+                if location:
+                    print(f"Address: {search_value}")
+                    print(f"Latitude: {location.latitude}, Longitude: {location.longitude}")
+                else:
+                    print("Location not found.")
+        except GeopyError as e:
+            print(f"Geocoding error: {e}")
+    else:
+        print('Please enter a location.')
+    
 @callback(
         Output(component_id="detail-graph", component_property="children"), 
         Input(component_id='map', component_property='clickData'),
@@ -167,6 +220,10 @@ def show_prediction_bound_plot(onClickData, value):
             
         graph = get_graph(f'{str(value)} Contour Plot', latitudes, longitudes, bounds.reshape(density, density))
         return graph
+def is_coordinates(input_str):
+    # Regular expression to check for coordinates pattern
+    pattern = r'^-?\d{1,3}\.\d+,\s*-?\d{1,3}\.\d+$'
+    return re.match(pattern, input_str.strip()) is not None
 
 # UI elements
 graph_section = html.Div(
@@ -206,6 +263,18 @@ graph_selector_section = html.Div(
         }
     )
 
+search_bar_section = html.Div(
+    children=['Search: ', search_bar, search_button],
+    style={
+        'display': 'flex', 
+        'flexDirection':'row', 
+        'align-items': 'center',
+        'gap' : '10px',
+        'padding-top': '10px',
+        'backgroundColor': colors['background']
+        }
+    )
+
 # Make the app and run it
 # the basic layout of the app is also defined here
 app = Dash(__name__)
@@ -220,6 +289,7 @@ app.layout = html.Div(
         info,
         model_selection_section,
         graph_selector_section,
+        search_bar_section,
         graph_section
 ])
 app.run_server(debug=True)
