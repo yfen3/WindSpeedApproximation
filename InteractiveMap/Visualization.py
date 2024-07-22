@@ -97,38 +97,76 @@ store = dcc.Store(id='store', storage_type='session')
 # Define callbacks
 @callback(
         Output(component_id="store", component_property="data"), 
-        Input(component_id="model-dropdown", component_property="value"), 
+        [Input(component_id="model-dropdown", component_property="value"), 
+         Input('search-button', 'n_clicks'),],
+        [State(component_id="store", component_property="data"),
+         State('search-bar', 'value'),],
+
+        prevent_initial_call=True
         )
-def update_dropdown_value_to_store(onClickData):
-    return onClickData
+def update_store_data(model_value, n_clicks, store_data, search_value):
+    if isinstance(store_data, str):
+        store_data = {}
+    elif store_data is None:
+        store_data = {}
+
+    if search_value is not None and search_value != "":
+        store_data['search'] = getCoordinates(search_value)
+
+    if model_value is not None:
+        store_data['model'] = model_value
+    
+    return store_data
+
 
 @callback(
         Output(component_id="tooltip", component_property="position"), 
-        Input(component_id="map", component_property="clickData"), 
+        [Input(component_id="map", component_property="clickData"),
+         Input('search-button', 'n_clicks'),],
+        State('search-bar', 'value'),
+        State(component_id="store", component_property="data"),
+         
         prevent_initial_call=True
         )
-def show_tool_tip_at_click_position(onClickData):
-    lat, lng = Utils.get_latlng(onClickData)
-    position = [lat, lng]
-
-    return position
+def show_tool_tip(mapOnClickData, n_clicks, search_value, data):
+    if search_value is not None and search_value != "":
+        position = getCoordinates(search_value)
+        if position != "":
+            return position
+    
+    if mapOnClickData is not None:
+        lat, lng = Utils.get_latlng(mapOnClickData)
+        position = [lat, lng]
+        return position
+    
+    else:
+        raise exceptions.PreventUpdate
 
 @callback(
         Output(component_id="tooltip", component_property="children"), 
-        Input(component_id="map", component_property="clickData"), 
+        Input(component_id="map", component_property="clickData"),
+        Input('search-button', 'n_clicks'), 
         Input(component_id='store', component_property='data'),
+        State('search-bar', 'value'),
         prevent_initial_call=True
         )
-def show_tooltip_content(onClickData, data):
-    print(data)
-    if onClickData is None:
+def show_tooltip_content(onClickData, n_clicks, store_data, search_value):
+    print(store_data)
+    
+    if search_value is not None and n_clicks > 0 and store_data['search'] != "":
+        # position = getCoordinates(search_value)
+        # if position != "":
+        #     lat, lng = position
+        lat, lng = store_data['search']
+    elif onClickData is not None:
+        lat, lng = Utils.get_latlng(onClickData)
+    else:
         raise exceptions.PreventUpdate
     
-    lat, lng = Utils.get_latlng(onClickData)
-    selected_model = model_loaders[data]
+    selected_model = model_loaders[store_data['model']]
 
     # TODO possible refactor
-    if 'GP' in data:
+    if 'GP' in store_data['model']:
         means, stds = Utils.get_confidence_interval(lat, lng, data_loader, selected_model, number_of_stations)
         most_recent_mean = Utils.get_most_recent_model_prediction(means)
         most_recent_std = Utils.get_most_recent_model_prediction(stds)
@@ -153,60 +191,37 @@ def show_tooltip_content(onClickData, data):
 @callback(
         Output(component_id="info", component_property="children"), 
         Input(component_id='map', component_property='clickData'),
+        Input('search-button', 'n_clicks'), 
+        State('search-bar', 'value'),
         )
-def show_click_info(onClickData):
-    if onClickData is None:
-        raise exceptions.PreventUpdate
-    else:
+def show_click_info(onClickData, n_clicks, search_value):
+    if search_value is not None and search_value != "":
+        position = getCoordinates(search_value)
+        if position != "":
+            lat, lng = position
+            return f'Location clicked: {np.round(lat, 4)}, {np.round(lng, 4)}'
+    elif onClickData is not None:
         lat, lng = Utils.get_latlng(onClickData)
         return f'Location clicked: {np.round(lat, 4)}, {np.round(lng, 4)}'
-    
-# Callback to handle search button clicks
-@callback(
-    [Input('search-button', 'n_clicks')],
-    State('search-bar', 'value'),
-    prevent_initial_call=True,
-)
-def on_search_button_click(n_clicks, search_value):
-    if search_value:
-        # print(f"Search value: {search_value}")
-        geolocator = Nominatim(user_agent="WindSpeedApproximationGeocoder")
-        try:
-            if is_coordinates(search_value):
-                # Reverse geocoding
-                location = geolocator.reverse(search_value)
-                if location:
-                    print(f"Coordinates: {search_value}")
-                    print(f"Address: {location.address}")
-                else:
-                    print("Location not found.")
-            else:
-                # Forward geocoding
-                location = geolocator.geocode(search_value)
-                if location:
-                    print(f"Address: {search_value}")
-                    print(f"Latitude: {location.latitude}, Longitude: {location.longitude}")
-                else:
-                    print("Location not found.")
-        except GeopyError as e:
-            print(f"Geocoding error: {e}")
     else:
-        print('Please enter a location.')
+        raise exceptions.PreventUpdate
     
 @callback(
         Output(component_id="detail-graph", component_property="children"), 
         Input(component_id='map', component_property='clickData'),
+        Input('search-button', 'n_clicks'), 
+        State('search-bar', 'value'),
         Input(component_id='graph-dropdown', component_property='value'),
         )
-def show_detail_graph(onClickData, value):
-    if onClickData is None:
+def show_detail_graph(onClickData, n_clicks, search_value, value):
+    if onClickData is None and (search_value is None or search_value == ""):
         raise exceptions.PreventUpdate
     else:
-        return show_prediction_bound_plot(onClickData, value)
+        return show_prediction_bound_plot(onClickData, search_value, value)
 
 # TODO consider add a date slider to show the change of the prediction over time 
-def show_prediction_bound_plot(onClickData, value):
-    if onClickData is None:
+def show_prediction_bound_plot(onClickData, search_value, value):
+    if onClickData is None and (search_value is None or search_value == ""):
         raise exceptions.PreventUpdate
     else:
         density = 10
@@ -220,10 +235,49 @@ def show_prediction_bound_plot(onClickData, value):
             
         graph = get_graph(f'{str(value)} Contour Plot', latitudes, longitudes, bounds.reshape(density, density))
         return graph
+    
+@callback(
+        Output(component_id="search-bar", component_property="value"),
+        Input('search-button', 'n_clicks'),
+                 
+        prevent_initial_call=True
+        )
+def clearSearchBar(n_clicks):
+    return ""
+    
 def is_coordinates(input_str):
     # Regular expression to check for coordinates pattern
     pattern = r'^-?\d{1,3}\.\d+,\s*-?\d{1,3}\.\d+$'
     return re.match(pattern, input_str.strip()) is not None
+def getCoordinates(search_value):
+    position = ""
+    if search_value:
+        geolocator = Nominatim(user_agent="WindSpeedApproximationGeocoder")
+        try:
+            if is_coordinates(search_value):
+                location = geolocator.reverse(search_value)
+                if location:
+                    lat, lng = map(float, search_value.split(','))
+                    position = [lat, lng]
+                    return position
+                else:
+                    print("Location not found.")
+                    return position
+            else:
+                location = geolocator.geocode(search_value)
+                if location:
+                    lat, lng = location.latitude, location.longitude
+                    position = [lat, lng]
+                    return position
+                else:
+                    print("Location not found.")
+                    return position
+        except GeopyError as e:
+            print(f"Geocoding error: {e}")
+            return position
+    else:
+        print('Please enter a location.')
+        return position
 
 # UI elements
 graph_section = html.Div(
