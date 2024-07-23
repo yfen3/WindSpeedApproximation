@@ -1,9 +1,10 @@
 /.ipynb_checkpoints/
 /Setup.ipynb
 /Regression_Tree_Forest/
-/Data/processed_ab_wind.csv
-/wind_ab/
+/Data/*
+/Data/AB_wind_data/
+/Data/FES/
 /Data/exp/
-/Data
+!/Data/public
 *.pickle
 *.pyc
