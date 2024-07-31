@@ -18,6 +18,7 @@ import numpy as np
 import re
 from geopy.geocoders import Nominatim
 from geopy.exc import GeopyError
+import time
 
 device = torch.device("cuda:0")
 print(f"Keras version is {keras.__version__}")
@@ -136,8 +137,11 @@ def show_tool_tip(mapOnClickData, n_clicks, search_value, data):
     
     if mapOnClickData is not None:
         lat, lng = Utils.get_latlng(mapOnClickData)
-        position = [lat, lng]
-        return position
+        if is_within_alberta(lat, lng):
+            position = [lat, lng]
+            return position
+        else:
+            raise exceptions.PreventUpdate
     
     else:
         raise exceptions.PreventUpdate
@@ -153,13 +157,17 @@ def show_tool_tip(mapOnClickData, n_clicks, search_value, data):
 def show_tooltip_content(onClickData, n_clicks, store_data, search_value):
     print(store_data)
     
-    if search_value is not None and n_clicks > 0 and store_data['search'] != "":
+    if search_value is not None and search_value != "" and store_data['search'] != "":
         # position = getCoordinates(search_value)
         # if position != "":
         #     lat, lng = position
         lat, lng = store_data['search']
     elif onClickData is not None:
-        lat, lng = Utils.get_latlng(onClickData)
+        lt, ln = Utils.get_latlng(onClickData)
+        if is_within_alberta(lt, ln):
+            lat, lng = lt, ln
+        else:
+            raise exceptions.PreventUpdate
     else:
         raise exceptions.PreventUpdate
     
@@ -200,9 +208,14 @@ def show_click_info(onClickData, n_clicks, search_value):
         if position != "":
             lat, lng = position
             return f'Location clicked: {np.round(lat, 4)}, {np.round(lng, 4)}'
+        else:
+            return 'Location is not within Alberta. Try again.'
     elif onClickData is not None:
         lat, lng = Utils.get_latlng(onClickData)
-        return f'Location clicked: {np.round(lat, 4)}, {np.round(lng, 4)}'
+        if is_within_alberta(lat, lng):
+            return f'Location clicked: {np.round(lat, 4)}, {np.round(lng, 4)}'
+        else:
+            return 'Location is not within Alberta. Try again.'
     else:
         raise exceptions.PreventUpdate
     
@@ -243,6 +256,7 @@ def show_prediction_bound_plot(onClickData, search_value, value):
         prevent_initial_call=True
         )
 def clearSearchBar(n_clicks):
+    time.sleep(3)
     return ""
     
 def is_coordinates(input_str):
@@ -258,8 +272,12 @@ def getCoordinates(search_value):
                 location = geolocator.reverse(search_value)
                 if location:
                     lat, lng = map(float, search_value.split(','))
-                    position = [lat, lng]
-                    return position
+                    if is_within_alberta(lat, lng):
+                        position = [lat, lng]
+                        return position
+                    else:
+                        print("Location out of bounds.")
+                        return position 
                 else:
                     print("Location not found.")
                     return position
@@ -267,8 +285,12 @@ def getCoordinates(search_value):
                 location = geolocator.geocode(search_value)
                 if location:
                     lat, lng = location.latitude, location.longitude
-                    position = [lat, lng]
-                    return position
+                    if is_within_alberta(lat, lng):
+                        position = [lat, lng]
+                        return position
+                    else:
+                        print("Location out of bounds.")
+                        return position
                 else:
                     print("Location not found.")
                     return position
@@ -278,6 +300,14 @@ def getCoordinates(search_value):
     else:
         print('Please enter a location.')
         return position
+def is_within_alberta(lat, lng):
+    min_lat, min_lng = 49, -119
+    max_lat, max_lng = 55, -109
+
+    if min_lat <= lat <= max_lat and min_lng <= lng <= max_lng:
+        return True
+    else:
+        return False
 
 # UI elements
 graph_section = html.Div(
@@ -347,3 +377,4 @@ app.layout = html.Div(
         graph_section
 ])
 app.run_server(debug=True)
+ 
